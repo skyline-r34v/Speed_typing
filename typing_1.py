@@ -1,45 +1,62 @@
+import streamlit as st
 from wonderwords import RandomSentence
-from colorama import init, Fore, Style
 import time
 
-init()
+# Initialize the random sentence generator
+sen1 = RandomSentence()
 
-def typing_speed():
-    def convert_to_colored(generated, user):
-        colored_text = ''
-        for gen_char, user_char in zip(generated, user):
-            if gen_char == user_char:
-                colored_text += Fore.GREEN + user_char + Style.RESET_ALL
-            else:
-                colored_text += Fore.RED + user_char + Style.RESET_ALL
-        # Add remaining characters (if any) from the longer string without coloring
-        if len(generated) > len(user):
-            colored_text += generated[len(user):]
-        elif len(user) > len(generated):
-            colored_text += Fore.RED + user[len(generated):] + Style.RESET_ALL
-        return colored_text
+# Define a function to convert generated and user input sentences into a colored string
+def convert_to_colored(generated, user):
+    colored_text = ''
+    for gen_char, user_char in zip(generated, user):
+        if gen_char == user_char:
+            colored_text += f'<span style="color: green;">{user_char}</span>'
+        else:
+            colored_text += f'<span style="color: red;">{user_char}</span>'
+    # Add remaining characters (if any) from the longer string without coloring
+    if len(generated) > len(user):
+        colored_text += generated[len(user):]
+    elif len(user) > len(generated):
+        colored_text += f'<span style="color: red;">{user[len(generated):]}</span>'
+    return colored_text
 
-    sen1 = RandomSentence()
-    generated_sentence = sen1.sentence()
-    print("Generated Sentence:", generated_sentence)
-    print("Type To Start:")
+# Generate a new sentence
+if "generated_sentence" not in st.session_state:
+    st.session_state["generated_sentence"] = sen1.sentence()
 
-    start_time = time.time()
-    user_input = input()
-    stop_time = time.time()
+# Streamlit app
+st.title("Typing Speed Test")
 
-    colored_output = convert_to_colored(generated_sentence, user_input)
-    print(colored_output)
+st.write(f"Generated Sentence: {st.session_state['generated_sentence']}")
 
-    time_for_typing = stop_time - start_time
-    minutes = time_for_typing / 60
-    length_of_sentence = len(user_input)
-    speed = int(length_of_sentence / minutes)
+if "start_time" not in st.session_state:
+    st.session_state["start_time"] = None
 
-    if user_input == generated_sentence:
-        print(f"\nSpeed of typing: {speed} characters per minute")
+# Start button to start the timer and user input text area
+if st.button("Start Typing"):
+    st.session_state["start_time"] = time.time()
+    st.session_state["user_input"] = ""  # Clear previous input
+
+user_input = st.text_area("Type the sentence here:", value=st.session_state.get("user_input", ""), on_change=lambda: st.session_state.update({"user_input": user_input}))
+
+# Calculate typing speed and display results
+if st.button("Submit"):
+    if st.session_state["start_time"] is not None:
+        stop_time = time.time()
+        time_for_typing = stop_time - st.session_state["start_time"]
+        minutes = time_for_typing / 60
+        length_of_sentence = len(user_input)
+        speed = int(length_of_sentence / minutes)
+
+        colored_output = convert_to_colored(st.session_state["generated_sentence"], user_input)
+        st.markdown(f"Your typed sentence: {colored_output}", unsafe_allow_html=True)
+        st.write(f"Time taken: {time_for_typing:.2f} seconds")
+
+        if user_input == st.session_state["generated_sentence"]:
+            st.success(f"Speed of typing: {speed} characters per minute")
+        else:
+            st.error("The input does not match the generated sentence. Please retry!")
+            # Retain the same sentence for retry
+            st.session_state["start_time"] = None  # Reset the start time for retry
     else:
-        print("\nRETRY!!!\n")
-        typing_speed()
-
-typing_speed()
+        st.error("Please start the typing test first.")
